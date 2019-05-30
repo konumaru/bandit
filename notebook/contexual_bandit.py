@@ -22,11 +22,16 @@ class ContextualBandit():
         self.n_arm = n_arm
         self.base_model = base_model
         self.n_estimator = n_estimator
-        self.estimators = np.array(
-            [[base_model for _ in range(n_estimator)] for _ in range(n_arm)])
         self.smpl_count_each_arm = np.zeros(n_arm, dtype=np.int64)
 
+    def _reset_estimators(self):
+        estimators = np.array(
+            [[self.base_model for _ in range(self.n_estimator)] for _ in range(self.n_arm)])
+        return estimators
+
     def fit(self, X, chosen_arm, y):
+        self.estimators = self._reset_estimators()
+
         for arm_id in range(self.n_arm):
             matched_X = X[(chosen_arm == arm_id)]
             matched_y = y[(chosen_arm == arm_id)]
@@ -54,28 +59,26 @@ class ContextualBandit():
         return X[bootstrapped_idx], y[bootstrapped_idx]
 
     def _thompson_sampling(self, smpl):
-        smpl_avg, smpl_std = smpl.mean(), smpl.std()
-        return np.random.normal(smpl_avg, smpl_std)
+        smpl_avg = np.mean(smpl, axis=0)
+        smpl_std = np.std(smpl, axis=0)
+        return np.random.normal(smpl_avg, smpl_std, size=(1, len(smpl)))
 
     def _get_proba_with_thompson_sampling(self, arm_id, X):
 
         def _single_predict_proba(arm_id, estimator_idx, X):
             return self.estimators[arm_id, estimator_idx].predict_proba(X)[:, 1]
 
-        proba_result = Parallel(n_jobs=-1)(
+        proba_result = Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
             [delayed(_single_predict_proba)(arm_id, estimator_idx, X)
              for estimator_idx in range(self.n_estimator)])
 
-        proba_mean = np.mean(proba_result, axis=0)
-        proba_std = np.std(proba_result, axis=0)
-
-        return [np.random.normal(p, s) for p, s in zip(proba_mean, proba_std)]
+        proba_each_arm = self._thompson_sampling(proba_result)
+        return proba_each_arm
 
     def predict(self, X):
         proba_each_users = np.zeros((self.n_arm, X.shape[0]))
 
         for arm_id in range(self.n_arm):
-            proba_each_users[arm_id, :] = \
-                self._get_proba_with_thompson_sampling(arm_id, X)
+            proba_each_users[arm_id, :] = self._get_proba_with_thompson_sampling(arm_id, X)
 
         return np.argmax(proba_each_users, axis=0)
