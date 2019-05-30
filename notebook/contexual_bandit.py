@@ -31,9 +31,9 @@ class ContextualBandit():
             matched_X = X[(chosen_arm == arm_id)]
             matched_y = y[(chosen_arm == arm_id)]
 
-            Parallel(n_jobs=-1)([delayed(self._fit_single)(
-                arm_id, estimator_idx, matched_X, matched_y)
-                for estimator_idx in range(self.n_estimator)])
+            Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
+                [delayed(self._fit_single)(arm_id, estimator_idx, matched_X, matched_y)
+                 for estimator_idx in range(self.n_estimator)])
 
             self.smpl_count_each_arm[arm_id] += matched_X.shape[0]
 
