@@ -3,8 +3,6 @@ from joblib import Parallel, delayed
 
 from sklearn.linear_model import LogisticRegression
 
-np.random.seed(42)
-
 
 class ZeroPredictor():
 
@@ -33,21 +31,21 @@ class ContextualBandit():
             matched_X = X[(chosen_arm == arm_id)]
             matched_y = y[(chosen_arm == arm_id)]
 
-            self.estimators[arm_id] = Parallel(n_jobs=-1)(
-                [delayed(self._bagging)(self.base_model, matched_X, matched_y)
-                 for estimator in range(self.n_estimator)]
-            )
+            Parallel(n_jobs=-1)([delayed(self._fit_single)(
+                arm_id, estimator_idx, matched_X, matched_y)
+                for estimator_idx in range(self.n_estimator)])
 
             self.smpl_count_each_arm[arm_id] += matched_X.shape[0]
 
-    def _bagging(self, model, X, y):
+    def _fit_single(self, arm_id, estimator_idx, X, y):
         _X, _y = self._bootstrapped_sampling(X, y)
         if _y.sum() == 0:
-            return ZeroPredictor()
+            self.estimators[arm_id, estimator_idx] = ZeroPredictor()
+            return None
         elif _y.sum() == _y.shape[0]:
-            return OnePredictor()
-        else:
-            return model.fit(_X, _y)
+            self.estimators[arm_id, estimator_idx] = OnePredictor()
+            return None
+        self.estimators[arm_id, estimator_idx].fit(_X, _y)
 
     def _bootstrapped_sampling(self, X, y, sample_rate=0.8):
         data_size = X.shape[0]
@@ -59,13 +57,14 @@ class ContextualBandit():
         smpl_avg, smpl_std = smpl.mean(), smpl.std()
         return np.random.normal(smpl_avg, smpl_std)
 
-    def _predict_proba_with_thompson_sampling(self, arm_id, X):
+    def _get_proba_with_thompson_sampling(self, arm_id, X):
 
-        def _single_predict_proba(model, X):
-            return model.predict_proba(X)[:, 1]
+        def _single_predict_proba(arm_id, estimator_idx, X):
+            return self.estimators[arm_id, estimator_idx].predict_proba(X)[:, 1]
 
-        proba_result = Parallel(n_jobs=-1)([delayed(_single_predict_proba)(
-            estimator, X) for estimator in self.estimators[arm_id]])
+        proba_result = Parallel(n_jobs=-1)(
+            [delayed(_single_predict_proba)(arm_id, estimator_idx, X)
+             for estimator_idx in range(self.n_estimator)])
 
         proba_mean = np.mean(proba_result, axis=0)
         proba_std = np.std(proba_result, axis=0)
@@ -75,13 +74,8 @@ class ContextualBandit():
     def predict(self, X):
         proba_each_users = np.zeros((self.n_arm, X.shape[0]))
 
-        def predict_proba(estimators, X, arm_id):
-            proba = np.array([e.predict_proba(X)[:, 1] for e in estimators]).T
-            proba = [self._thompson_sampling(p) for p in proba]
-            return np.array(proba)
-
         for arm_id in range(self.n_arm):
-            proba_each_users[arm_id, :] = self._predict_proba_with_thompson_sampling(
-                arm_id, X)
+            proba_each_users[arm_id, :] = \
+                self._get_proba_with_thompson_sampling(arm_id, X)
 
         return np.argmax(proba_each_users, axis=0)
