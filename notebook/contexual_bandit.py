@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from joblib import Parallel, delayed
 
 from sklearn.linear_model import LogisticRegression
@@ -23,16 +24,15 @@ class _BetaPredictor():
 
 class ContextualBandit():
 
-    def __init__(self, base_model, n_arm,  n_estimator=100):
+    def __init__(self, n_arm, n_estimator=100):
         self.n_arm = n_arm
-        self.base_model = base_model
         self.n_estimator = n_estimator
         self.smpl_count_each_arm = np.zeros(n_arm, dtype=np.int64)
 
     def _reset_estimators(self):
-        estimators = np.array(
-            [[self.base_model for _ in range(self.n_estimator)] for _ in range(self.n_arm)])
-        return estimators
+        estimators = [[LogisticRegression(solver='lbfgs')
+                       for _ in range(self.n_estimator)] for _ in range(self.n_arm)]
+        return np.array(estimators)
 
     def fit(self, X, chosen_arm, y):
         self.estimators = self._reset_estimators()
@@ -41,15 +41,14 @@ class ContextualBandit():
             matched_X = X[chosen_arm == arm_id]
             matched_y = y[chosen_arm == arm_id]
 
-            # Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
-            #     [delayed(self._fit_single)(arm_id, estimator_idx, matched_X, matched_y)
-            #      for estimator_idx in range(self.n_estimator)])
-            for estimator_idx in range(self.n_estimator):
-                self._fit_single(arm_id, estimator_idx, matched_X, matched_y)
+            Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
+                [delayed(self._fit_single)(arm_id, estimator_idx, matched_X, matched_y)
+                 for estimator_idx in range(self.n_estimator)])
 
             self.smpl_count_each_arm[arm_id] += matched_y.shape[0]
 
     def _fit_single(self, arm_id, estimator_idx, X, y):
+        np.random.seed(arm_id*estimator_idx)
         _X, _y = self._bootstrapped_sampling(X, y)
         if _y.sum() == 0:
             self.estimators[arm_id, estimator_idx] = ZeroPredictor()
@@ -59,7 +58,7 @@ class ContextualBandit():
             return None
         self.estimators[arm_id, estimator_idx].fit(_X, _y)
 
-    def _bootstrapped_sampling(self, X, y, sample_rate=0.8):
+    def _bootstrapped_sampling(self, X, y, sample_rate=1.0):
         data_size = X.shape[0]
         bootstrapped_idx = np.random.randint(0, data_size, int(data_size*sample_rate))
         return X[bootstrapped_idx], y[bootstrapped_idx]
@@ -74,12 +73,9 @@ class ContextualBandit():
         def _single_predict_proba(arm_id, estimator_idx, X):
             return self.estimators[arm_id, estimator_idx].predict_proba(X)[:, 1]
 
-        # proba_result = Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
-        #     [delayed(_single_predict_proba)(arm_id, estimator_idx, X)
-        #      for estimator_idx in range(self.n_estimator)])
-        proba_result = []
-        for estimator_idx in range(self.n_estimator):
-            proba_result.append(_single_predict_proba(arm_id, estimator_idx, X))
+        proba_result = Parallel(n_jobs=-1)(
+            [delayed(_single_predict_proba)(arm_id, estimator_idx, X)
+             for estimator_idx in range(self.n_estimator)])
 
         proba_each_arm = self._thompson_sampling(proba_result)
         return proba_each_arm
