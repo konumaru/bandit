@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 from joblib import Parallel, delayed
 
 from sklearn.linear_model import LogisticRegression
@@ -45,7 +44,7 @@ class ContextualBandit():
                 [delayed(self._fit_single)(arm_id, estimator_idx, matched_X, matched_y)
                  for estimator_idx in range(self.n_estimator)])
 
-            self.smpl_count_each_arm[arm_id] += matched_y.shape[0]
+            self.smpl_count_each_arm[arm_id] = matched_y.shape[0]
 
     def _fit_single(self, arm_id, estimator_idx, X, y):
         np.random.seed(arm_id*estimator_idx)
