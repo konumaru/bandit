@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 class ZeroPredictor():
 
     def predict_proba(self, X):
-        return np.c_[np.ones((X.shape[0], 1)),  np.zeros((X.shape[0], 1))]
+        return np.c_[np.ones((X.shape[0], 1)), np.zeros((X.shape[0], 1))]
 
 
 class OnePredictor():
@@ -47,7 +47,7 @@ class ContextualBandit():
             self.smpl_count_each_arm[arm_id] = matched_y.shape[0]
 
     def _fit_single(self, arm_id, estimator_idx, X, y):
-        np.random.seed(arm_id*estimator_idx)
+        np.random.seed(arm_id * estimator_idx)
         _X, _y = self._bootstrapped_sampling(X, y)
         if _y.sum() == 0:
             self.estimators[arm_id, estimator_idx] = ZeroPredictor()
@@ -59,7 +59,7 @@ class ContextualBandit():
 
     def _bootstrapped_sampling(self, X, y, sample_rate=1.0):
         data_size = X.shape[0]
-        bootstrapped_idx = np.random.randint(0, data_size, int(data_size*sample_rate))
+        bootstrapped_idx = np.random.randint(0, data_size, int(data_size * sample_rate))
         return X[bootstrapped_idx], y[bootstrapped_idx]
 
     def _thompson_sampling(self, smpl):
