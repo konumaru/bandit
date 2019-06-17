@@ -6,11 +6,23 @@ from sklearn.linear_model import LogisticRegression
 
 class ZeroPredictor():
 
+    def __init__(self):
+        pass
+
+    def fit(self, X=None, y=None, sample_weight=None):
+        pass
+
     def predict_proba(self, X):
         return np.c_[np.ones((X.shape[0], 1)), np.zeros((X.shape[0], 1))]
 
 
 class OnePredictor():
+
+    def __init__(self):
+        pass
+
+    def fit(self, X=None, y=None, sample_weight=None):
+        pass
 
     def predict_proba(self, X):
         return np.c_[np.zeros((X.shape[0], 1)), np.ones((X.shape[0], 1))]
@@ -40,15 +52,15 @@ class ContextualBandit():
             matched_X = X[chosen_arm == arm_id]
             matched_y = y[chosen_arm == arm_id]
 
-            Parallel(n_jobs=-1, verbose=0, require="sharedmem")(
+            Parallel(n_jobs=1, verbose=0, require="sharedmem")(
                 [delayed(self._fit_single)(arm_id, estimator_idx, matched_X, matched_y)
                  for estimator_idx in range(self.n_estimator)])
 
             self.smpl_count_each_arm[arm_id] = matched_y.shape[0]
 
     def _fit_single(self, arm_id, estimator_idx, X, y):
-        np.random.seed(arm_id * estimator_idx)
-        _X, _y = self._bootstrapped_sampling(X, y)
+        rnd_state = np.random.RandomState()
+        _X, _y = self._bootstrapped_sampling(X, y, rnd_state)
         if _y.sum() == 0:
             self.estimators[arm_id, estimator_idx] = ZeroPredictor()
             return None
@@ -57,9 +69,9 @@ class ContextualBandit():
             return None
         self.estimators[arm_id, estimator_idx].fit(_X, _y)
 
-    def _bootstrapped_sampling(self, X, y, sample_rate=1.0):
+    def _bootstrapped_sampling(self, X, y, rnd_state, sample_rate=1.0):
         data_size = X.shape[0]
-        bootstrapped_idx = np.random.randint(0, data_size, int(data_size * sample_rate))
+        bootstrapped_idx = rnd_state.randint(0, data_size, int(data_size * sample_rate))
         return X[bootstrapped_idx], y[bootstrapped_idx]
 
     def _thompson_sampling(self, smpl):
