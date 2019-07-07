@@ -5,18 +5,28 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
 
-def generate_data(n_arm=5, n_samples=10000, random_state=42):
+def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=10, random_state=42):
     np.random.seed(random_state)
 
-    n_noise = np.random.rand(n_samples)
-    weights = np.random.rand(n_arm)
+    if is_context:
+        n_noise = np.random.rand(n_samples, feature_dim)
+        weights = np.random.rand(n_arm, feature_dim)
 
-    pulled_arms = np.random.randint(n_arm, size=n_samples)
-    pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
+        pulled_arms = np.random.randint(n_arm, size=n_samples)
+        pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
 
-    data = np.c_[pulled_arms, pulled_rewards]
+        data = np.c_[pulled_arms, pulled_rewards]
+        return data, weights
 
-    return data, weights
+    else:
+        n_noise = np.random.rand(n_samples)
+        weights = np.random.rand(n_arm)
+
+        pulled_arms = np.random.randint(n_arm, size=n_samples)
+        pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
+
+        data = np.c_[pulled_arms, pulled_rewards]
+        return data, weights
 
 
 def plot_result(result_dict):
@@ -33,6 +43,9 @@ def plot_result(result_dict):
 def main():
     n_arm = 5
     n_samples = 1000000
+    is_contextual = True
+    feature_dim = 20
+
     data, weight = generate_data(n_arm, n_samples)
 
     print('Each Arm Weight Is ', weight)
