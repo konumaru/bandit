@@ -7,7 +7,7 @@ class BaseBandit():
         self.n_arm = n_arm
         self.context = context
 
-        self.avg_rewards = np.zeros(n_arm)
+        self.proba_rewards = np.zeros(n_arm)
         self.is_context = True if context else False
 
 
@@ -18,12 +18,12 @@ class EpsilonGreedy(BaseBandit):
         self.epsilon = epsilon
 
     def update(self, data):
-        self.avg_rewards = np.array([data[(data[:, 0] == arm_id), 1].mean()
-                                     for arm_id in range(self.n_arm)])
+        self.proba_rewards = np.array([data[(data[:, 0] == arm_id), 1].mean()
+                                       for arm_id in range(self.n_arm)])
 
     def select_arm(self, pull_count):
         # 最適なアームを選択
-        optimal_arm_id = self.avg_rewards.argmax()
+        optimal_arm_id = self.proba_rewards.argmax()
         selected_arm = np.full(pull_count, fill_value=optimal_arm_id)
 
         # 探索フラグを指定、探索アームを割り当て

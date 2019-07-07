@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.pardir)
+
 import numpy as np
 from bandit import EpsilonGreedy
 
@@ -5,25 +9,31 @@ import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
 
-def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=10, random_state=42):
+def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=5, random_state=42):
     np.random.seed(random_state)
 
     if is_context:
-        n_noise = np.random.rand(n_samples, feature_dim)
-        weights = np.random.rand(n_arm, feature_dim)
+        features = np.random.rand(n_samples, feature_dim)
+        arm_weights = np.random.rand(n_arm, feature_dim)
+        arm_weights = arm_weights / arm_weights.sum(axis=0)
 
         pulled_arms = np.random.randint(n_arm, size=n_samples)
-        pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
+
+        pulled_rewards = []
+        for i, arm_id in enumerate(pulled_arms):
+            theta = np.dot(features[i], arm_weights[arm_id].T)
+            noise = np.dot(np.random.rand(feature_dim), arm_weights[arm_id].T)
+            rewards = (theta > noise).astype(np.int8)
+            pulled_rewards.append(rewards)
 
         data = np.c_[pulled_arms, pulled_rewards]
-        return data, weights
-
+        return features, data, arm_weights
     else:
-        n_noise = np.random.rand(n_samples)
         weights = np.random.rand(n_arm)
-
         pulled_arms = np.random.randint(n_arm, size=n_samples)
-        pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
+        theta = np.random.rand(n_samples)
+
+        pulled_rewards = (theta < weights[pulled_arms]).astype(np.int8)
 
         data = np.c_[pulled_arms, pulled_rewards]
         return data, weights
@@ -42,15 +52,14 @@ def plot_result(result_dict):
 
 def main():
     n_arm = 5
-    n_samples = 1000000
+    n_samples = 1000
     is_contextual = True
     feature_dim = 20
 
-    data, weight = generate_data(n_arm, n_samples)
+    f_vector, data, weight = generate_data(n_arm, n_samples, is_contextual, feature_dim)
 
     print('Each Arm Weight Is ', weight)
     print('Max Rewards Arm_id Is ', np.argmax(weight))
-    print('Max Average Rewards Score Is ', weight[np.argmax(weight)])
 
     bandit_model = EpsilonGreedy(n_arm)
 
