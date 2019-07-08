@@ -1,3 +1,10 @@
-# Contextual Multi-Arm Bandit
+# Multi Arm Bandit 
 
-## やること
+- バンディットモデルのクラスをモジュール化
+
+## Overview
+### Demo Data
+
+### Pull Arm & Update Rewards
+
+### Select Arm
