@@ -61,11 +61,16 @@ def main():
     # Generate Data
     f_vector, rewards, weight = generate_data(n_arm, n_samples, is_contextual, feature_dim)
 
-    bandit_model = EpsilonGreedy(n_arm)
-
+    # Define Variables
     batch_size = 1000
     result_dict = {'avg_pred_rewads': [], 'avg_rand_rewads': []}
+    bandit_model = EpsilonGreedy(n_arm)
+    # bandit_model にコンテキストを与える
+    attr = {'solver': 'lbfgs'}
+    estimator = LogisticRegression
+    bandit_model.set_context(f_vector, estimator, attr)
 
+    # Train Model
     for start in range(0, n_samples, batch_size):
         end = np.minimum(start + batch_size, rewards.shape[0])
         print(f'Batch Progress Is {end} of {n_samples}')
