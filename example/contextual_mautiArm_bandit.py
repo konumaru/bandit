@@ -18,7 +18,7 @@ def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=5, ran
         # TODO: もっといいfeatureID の与え方ないかな、。。
         feature_id = np.arange(n_samples)
         feature_data = np.c_[feature_id, np.random.rand(n_samples, feature_dim)]
-        arm_weights = np.random.rand(n_arm, feature_dim)
+        arm_weights = np.random.rand(n_arm, feature_dim) / 2
         arm_weights = arm_weights / arm_weights.sum(axis=0)
 
         pulled_arms = np.random.randint(n_arm, size=n_samples)
@@ -34,7 +34,7 @@ def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=5, ran
         return feature_data, trial_data, arm_weights
     else:
         feature_id = np.arange(n_samples)
-        weights = np.random.rand(n_arm)
+        weights = np.random.rand(n_arm) / 2
         pulled_arms = np.random.randint(n_arm, size=n_samples)
         theta = np.random.rand(n_samples)
 
