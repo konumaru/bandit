@@ -12,14 +12,15 @@ plt.style.use('ggplot')
 def generate_data(n_arm=5, n_samples=10000, random_state=42):
     np.random.seed(random_state)
 
-    n_noise = np.random.rand(n_samples)
+    feature_id = np.arange(n_samples)
     weights = np.random.rand(n_arm)
-
     pulled_arms = np.random.randint(n_arm, size=n_samples)
-    pulled_rewards = (n_noise < weights[pulled_arms]).astype(np.int8)
+    theta = np.random.rand(n_samples)
 
-    data = np.c_[pulled_arms, pulled_rewards]
-    return data, weights
+    rewards = (theta < weights[pulled_arms]).astype(np.int8)
+
+    trial_data = np.c_[feature_id, pulled_arms, rewards]
+    return np.zeros(n_samples), trial_data, weights
 
 
 def plot_result(result_dict, dst_path):
@@ -37,7 +38,7 @@ def main():
     n_arm = 5
     n_samples = 1000000
 
-    data, weight = generate_data(n_arm, n_samples)
+    _, data, weight = generate_data(n_arm, n_samples)
 
     print('Each Arm Weight Is ', weight)
     print('Max Rewards Arm_id Is ', np.argmax(weight))
@@ -55,7 +56,7 @@ def main():
 
         batch_data = data[start:end]
         # Bandit モデルの更新
-        bandit_model.update(data[:end])
+        bandit_model.update(data[:end, 1:])
         # アームの選択（予測）、選ばれたアームから報酬を計算
         selected_arm = bandit_model.select_arm(end - start)
         is_matched = (batch_data[:, 0] == selected_arm)

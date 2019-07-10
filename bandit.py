@@ -36,7 +36,7 @@ class EpsilonGreedy(BaseBandit):
             self._normal_update(trial_data)
 
     def _normal_update(self, trial_data):
-        self.each_arm_probability = np.array([trial_data[(trial_data[:, 0] == arm_id), 1].mean()
+        self.each_arm_probability = np.array([trial_data[(trial_data[:, 1] == arm_id), 2].mean()
                                               for arm_id in range(self.n_arm)])
 
     def _contextual_update(self, trial_data):

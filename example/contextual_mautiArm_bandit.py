@@ -73,16 +73,16 @@ def main():
     # bandit_model にコンテキストを与える
     if is_contextual:
         attr = {'solver': 'lbfgs'}
-        estimator = LogisticRegression
+        base_estimator = LogisticRegression
         # TODO: set_context のタイミングでfeature_data をクラスに与える。
-        contextual_bandit_model.set_context(feature_data, estimator, attr)
+        contextual_bandit_model.set_context(feature_data, base_estimator, attr)
 
     # Train Model
     for start in range(0, n_samples, batch_size):
         end = np.minimum(start + batch_size, trial_data.shape[0])
         print(f'Batch Progress is {end} of {n_samples}')
 
-        batch_data = trial_data[start:end]
+        batch_data = trial_data[:end]
 
         # Bandit モデルの更新
         bandit_model.update(trial_data[:end])
@@ -101,7 +101,7 @@ def main():
         result_dict['avg_contetual_pred_reward'].append(avg_contetual_pred_reward)
 
         # ランダムにアームを選択した場合の報酬を計算
-        rand_selected_arms = np.random.randint(n_arm, size=(end - start))
+        rand_selected_arms = np.random.randint(n_arm, size=(end))
         is_observed = (batch_data[:, 1] == rand_selected_arms)
         avg_rand_reward = batch_data[is_observed, 2].mean()
         result_dict['avg_rand_rewads'].append(avg_rand_reward)
