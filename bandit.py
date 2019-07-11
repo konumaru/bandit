@@ -43,13 +43,8 @@ class EpsilonGreedy(BaseBandit):
         # アームごとにestimator を学習
         for arm_id in range(self.n_arm):
             is_matched_arm = (trial_data[:, 1] == arm_id)
-            # TODO: もっとうまく書けないのかな。
-            f = self.feature_data
-            f_id = f[:, 0]
-            f_data = f[:, 1:]
-            mated_f_idx = np.array([np.where(f_id == i)[0] for i in trial_data[is_matched_arm, 0]]).flatten()
 
-            X = f_data[mated_f_idx]
+            X = self.feature_data[trial_data[is_matched_arm, 0]]
             y = trial_data[is_matched_arm, 2]
 
             self.estimators[arm_id].fit(X, y)
@@ -71,12 +66,7 @@ class EpsilonGreedy(BaseBandit):
 
     def _get_contextual_selected_arm(self, trial_data):
         pulling_feature_id = trial_data[:, 0]
-        # TODO: もっとうまく書けないのかな。
-        f = self.feature_data
-        f_id = f[:, 0]
-        f_data = f[:, 1:]
-        mated_f_idx = np.array([np.where(f_id == i)[0] for i in pulling_feature_id]).flatten()
-        X = f_data[mated_f_idx]
+        X = self.feature_data[trial_data[pulling_feature_id, 0]]
 
         each_arm_proba = np.array([e.predict_proba(X)[:, 1] for e in self.estimators]).T
         return each_arm_proba.argmax(axis=1)

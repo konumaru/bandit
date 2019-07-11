@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.pardir)
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
@@ -11,30 +12,33 @@ from sklearn.linear_model import LogisticRegression
 from bandit import EpsilonGreedy
 
 
-def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=5, random_state=42):
+def generate_data(n_arm=5, n_samples=10000, is_context=False, feature_dim=5, random_state=None):
     np.random.seed(random_state)
 
     if is_context:
         # TODO: もっといいfeatureID の与え方ないかな、。。
-        feature_id = np.arange(n_samples)
-        feature_data = np.c_[feature_id, np.random.rand(n_samples, feature_dim)]
-        arm_weights = np.random.rand(n_arm, feature_dim) / 2
-        arm_weights = arm_weights / arm_weights.sum(axis=0)
-
+        feature_id = np.arange(n_samples).astype(np.int64)
+        feature_data = np.random.rand(n_samples, feature_dim)
         pulled_arms = np.random.randint(n_arm, size=n_samples)
 
+        # arm_weights = np.random.rand(n_arm, feature_dim)
+        arm_weights = np.tile(np.arange(0.1, 1, 1 / n_arm), (feature_dim, 1)).T
+        print(arm_weights)
+        arm_weights = np.abs(arm_weights - (np.eye(n_arm, feature_dim) / 2))
+
         rewards = []
-        for i, arm_id in enumerate(pulled_arms):
-            theta = np.dot(feature_data[i][1:], arm_weights[arm_id].T)
-            noise = np.dot(np.random.rand(feature_dim), arm_weights[arm_id].T)
-            reward = (theta > noise).astype(np.int8)
+        for f_data, arm_id in zip(feature_data, pulled_arms):
+            theta = np.dot(f_data, arm_weights[arm_id, :].T) / (feature_dim / 2)
+            reward = (theta > np.random.rand()).astype(np.int8)
             rewards.append(reward)
 
         trial_data = np.c_[feature_id, pulled_arms, rewards]
         return feature_data, trial_data, arm_weights
     else:
         feature_id = np.arange(n_samples)
-        weights = np.random.rand(n_arm) / 2
+
+        arm_weights = np.arange(0.1, 1, 1 / n_arm)
+        weights = arm_weights
         pulled_arms = np.random.randint(n_arm, size=n_samples)
         theta = np.random.rand(n_samples)
 
@@ -58,19 +62,20 @@ def plot_result(result_dict, dst_filename):
 def main():
     n_arm = 5
     n_samples = 10000
-    is_contextual = False
+    is_contextual = True
     feature_dim = 20
 
     # Generate Data
     feature_data, trial_data, weight = generate_data(n_arm, n_samples, is_contextual, feature_dim)
+    print(pd.DataFrame(trial_data).groupby(1)[2].mean())
 
-    # Define Variables
-    batch_size = 1000
-    result_dict = {'avg_pred_rewads': [], 'avg_contetual_pred_reward': [], 'avg_rand_rewads': []}
+    # Define Model
     bandit_model = EpsilonGreedy(n_arm)
     contextual_bandit_model = EpsilonGreedy(n_arm)
 
-    # bandit_model にコンテキストを与える
+    # Define Variables
+    batch_size = 1000
+    result_dict = {'bandit_avg_reward': [], 'contetual_bandit_avg_rewardd': [], 'rand_avg_rewads': []}
     if is_contextual:
         attr = {'solver': 'lbfgs'}
         base_estimator = LogisticRegression
@@ -89,22 +94,19 @@ def main():
         # アームの選択（予測）、選ばれたアームから報酬を計算
         selected_arms = bandit_model.select_arm(batch_data)
         is_observed = (batch_data[:, 1] == selected_arms)
-        avg_pred_reward = batch_data[is_observed, 2].mean()
-        result_dict['avg_pred_rewads'].append(avg_pred_reward)
+        result_dict['bandit_avg_reward'].append(batch_data[is_observed, 2].mean())
 
         # Contextual Bandit モデルの更新
         contextual_bandit_model.update(trial_data[:end])
         # アームの選択（予測）、選ばれたアームから報酬を計算
         selected_arms = contextual_bandit_model.select_arm(batch_data)
         is_observed = (batch_data[:, 1] == selected_arms)
-        avg_contetual_pred_reward = batch_data[is_observed, 2].mean()
-        result_dict['avg_contetual_pred_reward'].append(avg_contetual_pred_reward)
+        result_dict['contetual_bandit_avg_rewardd'].append(batch_data[is_observed, 2].mean())
 
         # ランダムにアームを選択した場合の報酬を計算
         rand_selected_arms = np.random.randint(n_arm, size=(end))
         is_observed = (batch_data[:, 1] == rand_selected_arms)
-        avg_rand_reward = batch_data[is_observed, 2].mean()
-        result_dict['avg_rand_rewads'].append(avg_rand_reward)
+        result_dict['rand_avg_rewads'].append(batch_data[is_observed, 2].mean())
 
     # 辞書型
     plot_result(result_dict, '../images/main/result.png')
